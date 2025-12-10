@@ -190,7 +190,10 @@ GEMINI_MODEL = os.getenv('GEMINI_MODEL', 'gemini-2.5-flash')
 
 # 模型路徑：優先使用本地模型，如果不存在則從 Hugging Face 下載
 MODEL_PATH = os.getenv('MODEL_PATH', os.path.join("models", "models20-multilingual-e5-large_fold_1"))
-HUGGINGFACE_MODEL_NAME = os.getenv('HUGGINGFACE_MODEL_NAME', 'intfloat/multilingual-e5-large')
+# 您的 Hugging Face 模型
+HUGGINGFACE_MODEL_NAME = os.getenv('HUGGINGFACE_MODEL_NAME', 'leochuang/multilingual-e5-large-custom')
+# 如果模型在 Google Drive，提供分享連結（選用）
+GDRIVE_MODEL_URL = os.getenv('GDRIVE_MODEL_URL', None)
 
 # 如果沒有 API Key，顯示警告並要求輸入
 if not GEMINI_API_KEY:
@@ -213,14 +216,15 @@ if not GEMINI_API_KEY:
 genai.configure(api_key=GEMINI_API_KEY)
 
 @st.cache_resource
-def load_model(local_path=None, hf_model_name=None):
+def load_model(local_path=None, hf_model_name=None, gdrive_url=None):
     """
     載入 Sentence Transformer 模型
-    優先使用本地模型，如果不存在則從 Hugging Face 下載
+    優先使用本地模型，如果不存在則從其他來源下載
     
     Args:
         local_path: 本地模型路徑
         hf_model_name: Hugging Face 模型名稱
+        gdrive_url: Google Drive 分享連結（選用）
     """
     # 先嘗試載入本地模型
     if local_path and os.path.exists(local_path):
@@ -229,6 +233,37 @@ def load_model(local_path=None, hf_model_name=None):
             return SentenceTransformer(local_path)
         except Exception as e:
             st.warning(f"⚠️ 本地模型載入失敗: {e}")
+    
+    # 如果有 Google Drive 連結，先嘗試從 Google Drive 下載
+    if gdrive_url:
+        try:
+            import gdown
+            import zipfile
+            import shutil
+            
+            st.info(f"🌐 從 Google Drive 下載模型...")
+            
+            # 下載到暫存資料夾
+            download_path = "temp_model.zip"
+            extract_path = "temp_model"
+            
+            gdown.download(gdrive_url, download_path, quiet=False, fuzzy=True)
+            
+            # 解壓縮
+            with zipfile.ZipFile(download_path, 'r') as zip_ref:
+                zip_ref.extractall(extract_path)
+            
+            # 載入模型
+            model = SentenceTransformer(extract_path)
+            
+            # 清理暫存檔案
+            os.remove(download_path)
+            shutil.rmtree(extract_path)
+            
+            st.success("✅ 從 Google Drive 下載並載入成功！")
+            return model
+        except Exception as e:
+            st.warning(f"⚠️ 從 Google Drive 下載失敗: {e}")
     
     # 如果本地模型不存在或載入失敗，從 Hugging Face 下載
     if hf_model_name:
@@ -241,7 +276,7 @@ def load_model(local_path=None, hf_model_name=None):
             st.error(f"❌ 模型下載失敗: {e}")
             return None
     
-    st.error("❌ 無法載入模型：本地模型不存在且未指定 Hugging Face 模型名稱")
+    st.error("❌ 無法載入模型：本地模型不存在且未指定其他來源")
     return None
 
 @st.cache_data
@@ -488,7 +523,11 @@ if momo_df.empty:
 
 # 載入資源
 with st.spinner("系統準備中，請稍候..."):
-    model = load_model(local_path=MODEL_PATH, hf_model_name=HUGGINGFACE_MODEL_NAME)
+    model = load_model(
+        local_path=MODEL_PATH, 
+        hf_model_name=HUGGINGFACE_MODEL_NAME,
+        gdrive_url=GDRIVE_MODEL_URL
+    )
 
 if model is None:
     st.error("❌ 無法載入模型，請檢查設定或網路連線")
