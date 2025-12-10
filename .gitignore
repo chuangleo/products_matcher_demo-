@@ -1,0 +1,35 @@
+# Python-generated files
+__pycache__/
+*.py[oc]
+build/
+dist/
+wheels/
+*.egg-info
+
+# Virtual environments
+.venv
+
+# 環境變數檔案 - 包含敏感資訊（API Keys）
+.env
+.env.local
+.env.*.local
+
+# Streamlit secrets
+.streamlit/secrets.toml
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# 作業系統相關
+.DS_Store
+Thumbs.db
+
+# 截圖
+*_screenshot.png
+*_error_screenshot.png
+
+# 模型檔案（太大，雲端部署時從 Hugging Face 下載）
+models/
